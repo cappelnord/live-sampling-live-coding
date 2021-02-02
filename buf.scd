@@ -26,7 +26,7 @@ var bufferInfo = ();
 	~buf = ();
 };
 
-~bufRecord = {|key, dur=1|
+~bufRecord = {|key, dur=1, fade=0.02|
 	bufferInfo[key].isNil.not.if ({
 		("overwriting " ++ key ++ "!").postln;
 		((bufferInfo.dur != dur) && bufferInfo.dur.isNil.not).if {
@@ -40,11 +40,11 @@ var bufferInfo = ();
 
 	bufferInfo[key].dur = dur;
 
-	Synth(\record, [\in, options.inChannel, \buffer, ~buf[key], \dur, dur]);
+	Synth(\record, [\in, options.inChannel, \buffer, ~buf[key], \dur, dur / TempoClock.default.tempo, \fade, fade] );
 
 	fork {
 		var fileName = options.dir +/+ key.asString ++ ".aiff";
-		(0.5 + (dur / TempoClock.default.tempo)).wait;
+		(0.5 + (dur)).wait;
 		~buf[key].write(fileName);
 		fileName.postln;
 	};
@@ -55,7 +55,8 @@ var bufferInfo = ();
 };
 
 ~bufRestore = {
-	var files = PathName(options.dir).files.collect {|x| x.fileName};
+	var files = PathName(options.dir).files.collect({|x| x.fileName}).select({|x| x.endsWith(".aiff")});
+
 	~bufInit.(options);
 	files.do {|filename|
 		var key = filename.split($.)[0].asSymbol;
@@ -74,9 +75,9 @@ var bufferInfo = ();
 };
 
 
-SynthDef(\record, {|in=0, buffer=0, dur=1|
+SynthDef(\record, {|in=0, buffer=0, dur=1, fade=0.02|
 	var sig = Mix.ar(SoundIn.ar(in, 2)) * 0.5;
-	var env = EnvGen.ar(Env([0, 1, 1, 0], [0.02, dur-0.04, 0.02]), doneAction: 2);
+	var env = EnvGen.ar(Env([0, 1, 1, 0], [fade, dur-(fade*2), fade]), doneAction: 2);
 	RecordBuf.ar(sig * env, buffer);
 }).add;
 
